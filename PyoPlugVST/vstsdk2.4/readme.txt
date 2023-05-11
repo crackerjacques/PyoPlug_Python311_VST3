@@ -1,1 +1,0 @@
-Copy the content of the vstsdk2.4 folder inside this directory
