@@ -1,6 +1,6 @@
 # PyoPlug for MacOS X 13 / Python 3.11 (Maybe work on Windows 10/11)
 
-![IMG](https://github.com/crackerjacques/PyoPlug/blob/master/pyoplugvst3.png?raw=true)
+![IMG](https://github.com/crackerjacques/PyoPlug_Python311_VST3/blob/master/pyoplugvst3.png?raw=true)
 
 There was a plugin called pyoplug that looked like a lot of fun, so I rewrote it to work with Python 3.11 and MacOS13.
 As a byproduct, a VST3 plugin was created. (Heck, it didn't even work with Reaper 6.79.)
