@@ -29,9 +29,13 @@ It is a modification to the extent that methods that are not used now are rewrit
 plugin hosts in my home...
 
 Nuendo
+
 PluginDoctor
+
 Adobe Autidion
+
 Bidule
+
 KushView Element
 
 I was able to confirm that the plugin works with
