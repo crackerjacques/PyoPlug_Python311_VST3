@@ -81,72 +81,89 @@ int Pyo::exec(const String &_msg) {
 }
 
 int Pyo::value(const char *name, float value) {
-    sprintf(pyoMsg, "%s.value=%f", name, value);
+    snprintf(pyoMsg, sizeof(pyoMsg), "%s.value=%f", name, value);
     return pyo_exec_statement(interpreter, pyoMsg, 0);
 }
 
 int Pyo::value(const String &name, float value) {
-    const char * _name = name.getCharPointer();
-    sprintf(pyoMsg, "%s.value=%f", _name, value);
+    const char * _name = name.getCharPointer().getAddress();
+    snprintf(pyoMsg, sizeof(pyoMsg), "%s.value=%f", _name, value);
     return pyo_exec_statement(interpreter, pyoMsg, 0);
 }
 
 int Pyo::value(const char *name, float *value, int len) {
     char fchar[32];
-    sprintf(pyoMsg, "%s.value=[", name);
-    for (int i=0; i<len; i++) {
-        sprintf(fchar, "%f,", value[i]);
-        strcat(pyoMsg, fchar);
+    if (len > 0) {
+        snprintf(pyoMsg, sizeof(pyoMsg), "%s.value=%f", name, *value);
+        for (int i=1; i<len; i++) {
+            snprintf(fchar, sizeof(fchar), "%f,", value[i]);
+            strcat(pyoMsg, fchar);
+        }
+        strcat(pyoMsg, "]");
+        return pyo_exec_statement(interpreter, pyoMsg, 0);
     }
-    strcat(pyoMsg, "]");
-    return pyo_exec_statement(interpreter, pyoMsg, 0);
+    return -1; // or handle the error appropriately
 }
+
 
 int Pyo::value(const String &name, float *value, int len) {
     char fchar[32];
     const char * _name = name.getCharPointer();
-    sprintf(pyoMsg, "%s.value=[", _name);
-    for (int i=0; i<len; i++) {
-        sprintf(fchar, "%f,", value[i]);
-        strcat(pyoMsg, fchar);
+    if (len > 0) {
+        snprintf(pyoMsg, sizeof(pyoMsg), "%s.value=%f", _name, *value);
+        for (int i=1; i<len; i++) {
+            snprintf(fchar, sizeof(fchar), "%f,", value[i]);
+            strcat(pyoMsg, fchar);
+        }
+        strcat(pyoMsg, "]");
+        return pyo_exec_statement(interpreter, pyoMsg, 0);
     }
-    strcat(pyoMsg, "]");
-    return pyo_exec_statement(interpreter, pyoMsg, 0);
+    return -1; // or handle the error appropriately
 }
+
 
 int Pyo::set(const char *name, float value) {
-    sprintf(pyoMsg, "%s=%f", name, value);
+    snprintf(pyoMsg, sizeof(pyoMsg), "%s=%f", name, value);
     return pyo_exec_statement(interpreter, pyoMsg, 0);
 }
 
+
 int Pyo::set(const String &name, float value) {
-    const char * _name = name.getCharPointer();
-    sprintf(pyoMsg, "%s=%f", _name, value);
+    snprintf(pyoMsg, sizeof(pyoMsg), "%s=%f", name.getCharPointer().getAddress(), value);
     return pyo_exec_statement(interpreter, pyoMsg, 0);
 }
+
 
 int Pyo::set(const char *name, float *value, int len) {
     char fchar[32];
-    sprintf(pyoMsg, "%s=[", name);
-    for (int i=0; i<len; i++) {
-        sprintf(fchar, "%f,", value[i]);
-        strcat(pyoMsg, fchar);
+    if (len > 0) {
+        snprintf(pyoMsg, sizeof(pyoMsg), "%s=%f", name, *value);
+        for (int i=1; i<len; i++) {
+            snprintf(fchar, sizeof(fchar), "%f,", value[i]);
+            strcat(pyoMsg, fchar);
+        }
+        strcat(pyoMsg, "]");
+        return pyo_exec_statement(interpreter, pyoMsg, 0);
     }
-    strcat(pyoMsg, "]");
-    return pyo_exec_statement(interpreter, pyoMsg, 0);
+    return -1; // or handle the error appropriately
 }
+
 
 int Pyo::set(const String &name, float *value, int len) {
     char fchar[32];
     const char * _name = name.getCharPointer();
-    sprintf(pyoMsg, "%s=[", _name);
-    for (int i=0; i<len; i++) {
-        sprintf(fchar, "%f,", value[i]);
-        strcat(pyoMsg, fchar);
+    if (len > 0) {
+        snprintf(pyoMsg, sizeof(pyoMsg), "%s=%f", _name, *value);
+        for (int i=1; i<len; i++) {
+            snprintf(fchar, sizeof(fchar), "%f,", value[i]);
+            strcat(pyoMsg, fchar);
+        }
+        strcat(pyoMsg, "]");
+        return pyo_exec_statement(interpreter, pyoMsg, 0);
     }
-    strcat(pyoMsg, "]");
-    return pyo_exec_statement(interpreter, pyoMsg, 0);
+    return -1; // or handle the error appropriately
 }
+
 
 void Pyo::midi(int status, int data1, int data2) {
     pyo_add_midi_event(interpreter, status, data1, data2);

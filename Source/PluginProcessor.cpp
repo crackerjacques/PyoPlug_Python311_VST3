@@ -20,6 +20,7 @@
  *************************************************************************/
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <iostream> 
 
 const char *initialDSP = "input = Input([0, 1])\n\ninput.out()\n";
 
@@ -49,7 +50,9 @@ PyoPlugAudioProcessor::PyoPlugAudioProcessor()
     parameters.state = ValueTree(Identifier(JucePlugin_Name));
 }
 
-PyoPlugAudioProcessor::~PyoPlugAudioProcessor() {}
+PyoPlugAudioProcessor::~PyoPlugAudioProcessor() {
+    delete[] memoryPool;
+}
 
 //==============================================================================
 const String PyoPlugAudioProcessor::getName() const {
@@ -100,17 +103,49 @@ void PyoPlugAudioProcessor::changeProgramName (int index, const String& newName)
 //==============================================================================
 void PyoPlugAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) {
     AudioPlayHead::CurrentPositionInfo infos;
-    getPlayHead()->getCurrentPosition(infos);
 
-    pyo.setup(getTotalNumOutputChannels(), samplesPerBlock, sampleRate);
-    pyo.setbpm(infos.bpm);
+    if (getPlayHead() != nullptr) {
+        if (getPlayHead()->getPosition()) {
+            const int maxChannels = 128; 
 
-    if (currentCode != "") {
-        computeCode(currentCode);
+            int currentOutputChannels = getTotalNumOutputChannels(); 
+            int currentInputChannels = getTotalNumInputChannels();
+
+            int currentChannels = std::max(currentOutputChannels, currentInputChannels);
+            
+            if (currentChannels > maxChannels) {
+                currentChannels = maxChannels;
+            }
+
+            // メモリプールのサイズ
+            const size_t poolSize = 1024 * 1024 * 1024;  // 1GB
+
+            // メモリプールを確保
+            memoryPool = new (std::nothrow) char[poolSize];
+
+            // メモリ確保のエラーチェック
+            if (memoryPool == nullptr) {
+                std::cerr << "Failed to allocate memory pool." << std::endl;
+                return;
+            }
+
+            pyo.setup(currentChannels, samplesPerBlock, sampleRate);
+            pyo.setbpm(infos.bpm);
+
+            if (currentCode != "") {
+                computeCode(currentCode);
+            }
+
+            keyboardState.reset();
+        }
     }
-
-    keyboardState.reset();
 }
+
+
+
+
+
+
 
 void PyoPlugAudioProcessor::releaseResources() {
     keyboardState.reset();
@@ -147,7 +182,7 @@ AudioProcessorEditor* PyoPlugAudioProcessor::createEditor() {
 //==============================================================================
 void PyoPlugAudioProcessor::getStateInformation (MemoryBlock& destData) {
     String content(currentCode);
-    destData.replaceWith((&content)->toUTF8(),
+    destData.replaceAll((&content)->toUTF8(),
                          CharPointer_UTF8::getBytesRequiredFor(content.getCharPointer()));
 }
 
@@ -166,7 +201,14 @@ void PyoPlugAudioProcessor::computeCode(String code) {
 }
 
 void PyoPlugAudioProcessor::parameterChanged(const String& parameterID, float newValue) {
-    pyo.value(parameterID, newValue);
+    if (std::isfinite(newValue)) { 
+        pyo.value(parameterID, newValue);
+    } else {
+        std::cerr << "Error: Invalid value (" << newValue << ") for parameter " << parameterID.toStdString() << std::endl;
+
+        float defaultValue = 0.0f;
+        pyo.value(parameterID, defaultValue);
+    }
 }
 
 //==============================================================================

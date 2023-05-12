@@ -65,7 +65,7 @@ static void *libpython_handle;
 ** returns the new python thread's interpreter state.
 */
 INLINE PyThreadState * pyo_new_interpreter(float sr, int bufsize, int chnls) {
-    char msg[64];
+
     PyThreadState *interp;
     if(!Py_IsInitialized()) {
         Py_InitializeEx(0);
@@ -96,10 +96,13 @@ INLINE PyThreadState * pyo_new_interpreter(float sr, int bufsize, int chnls) {
     PyRun_SimpleString("BPM = 60.0");
 
     PyRun_SimpleString("from pyo import *");
-    sprintf(msg, "_s_ = Server(%f, %d, %d, 1, 'embedded')", sr, chnls, bufsize);
-    PyRun_SimpleString(msg);
+    char msg1[64];  // renamed from msg to msg1
+    snprintf(msg1, sizeof(msg1), "_s_ = Server(%f, %d, %d, 1, 'embedded')", sr, chnls, bufsize);
+    PyRun_SimpleString(msg1);
     PyRun_SimpleString("_s_.boot()\n_s_.start()\n_s_.setServer()");
     PyRun_SimpleString("_server_id_ = _s_.getServerID()");
+
+
 
     /* 
     ** printf %p specifier behaves differently in Linux/MacOS and Windows.
@@ -275,14 +278,25 @@ INLINE unsigned long long pyo_get_embedded_callback_address_64(PyThreadState *in
 */
 INLINE int pyo_get_server_id(PyThreadState *interp) {
     PyObject *module, *obj;
+    long id_long;
     int id;
     PyEval_AcquireThread(interp);
     module = PyImport_AddModule("__main__");
     obj = PyObject_GetAttrString(module, "_server_id_");
-    id = PyInt_AsLong(obj);
+    id_long = PyLong_AsLong(obj); // Use PyLong_AsLong instead of PyInt_AsLong
+
+    // Check if the value can fit into an int
+    if (id_long < INT_MIN || id_long > INT_MAX) {
+        // Handle the error
+        printf("The value is out of the range of an int.\n");
+        return -1;
+    }
+
+    id = (int)id_long; // Explicitly convert long to int
     PyEval_ReleaseThread(interp);
     return id;
 }
+
 
 /*
 ** Closes the interpreter linked to the thread state given as argument.
@@ -331,16 +345,17 @@ INLINE void pyo_server_reboot(PyThreadState *interp) {
 **  bufsize : int, host buffer size.
 */
 INLINE void pyo_set_server_params(PyThreadState *interp, float sr, int bufsize) {
-    char msg[64];
+    char msg[256];
     PyEval_AcquireThread(interp);
     PyRun_SimpleString("_s_.setServer()\n_s_.stop()\n_s_.shutdown()");
-    sprintf(msg, "_s_.setSamplingRate(%f)", sr);
+    snprintf(msg, sizeof(msg), "_s_.setSamplingRate(%f)", sr);
     PyRun_SimpleString(msg);
-    sprintf(msg, "_s_.setBufferSize(%d)", bufsize);
+    snprintf(msg, sizeof(msg), "_s_.setBufferSize(%d)", bufsize);
     PyRun_SimpleString(msg);
     PyRun_SimpleString("_s_.boot(newBuffer=False).start()");
     PyEval_ReleaseThread(interp);
 }
+
 
 /*
 ** This function can be used to pass the DAW's bpm value to the 
@@ -354,10 +369,11 @@ INLINE void pyo_set_server_params(PyThreadState *interp, float sr, int bufsize) 
 INLINE void pyo_set_bpm(PyThreadState *interp, double bpm) {
     char msg[64];
     PyEval_AcquireThread(interp);
-    sprintf(msg, "BPM = %f", bpm);
+    snprintf(msg, sizeof(msg), "BPM = %f", bpm);
     PyRun_SimpleString(msg);
     PyEval_ReleaseThread(interp);
 }
+
 
 /*
 ** Add a MIDI event in the pyo server processing chain. When used in 
@@ -374,10 +390,11 @@ INLINE void pyo_set_bpm(PyThreadState *interp, double bpm) {
 INLINE void pyo_add_midi_event(PyThreadState *interp, int status, int data1, int data2) {
     char msg[64];
     PyEval_AcquireThread(interp);
-    sprintf(msg, "_s_.addMidiEvent(%d, %d, %d)", status, data1, data2);
+    snprintf(msg, sizeof(msg), "_s_.addMidiEvent(%d, %d, %d)", status, data1, data2);
     PyRun_SimpleString(msg);
     PyEval_ReleaseThread(interp);
 }
+
 
 /*
 ** Returns 1 if the pyo server is started for the given thread,
@@ -386,17 +403,18 @@ INLINE void pyo_add_midi_event(PyThreadState *interp, int status, int data1, int
 ** arguments:
 **  interp : pointer, pointer to the targeted Python thread state.
 */
-INLINE int pyo_is_server_started(PyThreadState *interp) {
-    int started;
+INLINE long pyo_is_server_started(PyThreadState *interp) {
+    long started;
     PyObject *module, *obj;
     PyEval_AcquireThread(interp);
     PyRun_SimpleString("started = _s_.getIsStarted()");
     module = PyImport_AddModule("__main__");
     obj = PyObject_GetAttrString(module, "started");
-    started = PyInt_AsLong(obj);
+    started = PyLong_AsLong(obj);
     PyEval_ReleaseThread(interp);
     return started;
 }
+
 
 /*
 ** Execute a python script "file" in the given thread's interpreter (interp).
@@ -418,28 +436,44 @@ INLINE int pyo_is_server_started(PyThreadState *interp) {
 ** returns 0 (no error), 1 (failed to open the file) or 2 (bad code in file).
 */
 INLINE int pyo_exec_file(PyThreadState *interp, const char *file, char *msg, int add) {
+    long ok_long, isrel_long, badcode_long;
     int ok, isrel, badcode, err = 0;
     PyObject *module;
     PyEval_AcquireThread(interp);
-    sprintf(msg, "import os\n_isrel_ = True\n_ok_ = os.path.isfile('./%s')", file);
+    snprintf(msg, 256, "import os\n_isrel_ = True\n_ok_ = os.path.isfile('./%s')", file);
     PyRun_SimpleString(msg);
-    sprintf(msg, "if not _ok_:\n    _isrel_ = False\n    _ok_ = os.path.isfile('%s')", file);
+    snprintf(msg, 256, "if not _ok_:\n    _isrel_ = False\n    _ok_ = os.path.isfile('%s')", file);
     PyRun_SimpleString(msg);
     module = PyImport_AddModule("__main__");
-    ok = PyInt_AsLong(PyObject_GetAttrString(module, "_ok_"));
-    isrel = PyInt_AsLong(PyObject_GetAttrString(module, "_isrel_"));
+    ok_long = PyLong_AsLong(PyObject_GetAttrString(module, "_ok_"));
+    isrel_long = PyLong_AsLong(PyObject_GetAttrString(module, "_isrel_"));
+    if (ok_long < INT_MIN || ok_long > INT_MAX || isrel_long < INT_MIN || isrel_long > INT_MAX) {
+        // Handle the error
+        printf("The value is out of the range of an int.\n");
+        PyEval_ReleaseThread(interp);
+        return -1;
+    }
+    ok = (int)ok_long;
+    isrel = (int)isrel_long;
     if (ok) {
         if (!add) {
             PyRun_SimpleString("_s_.setServer()\n_s_.stop()\n_s_.shutdown()");
             PyRun_SimpleString("_s_.boot(newBuffer=False).start()");
         }
         if (isrel) {
-            sprintf(msg, "_badcode_ = False\ntry:\n    exec(open('./%s').read())\nexcept:\n    _badcode_ = True", file);
+            snprintf(msg, 256, "_badcode_ = False\ntry:\n    exec(open('./%s').read())\nexcept:\n    _badcode_ = True", file);
         } else {
-            sprintf(msg, "_badcode_ = False\ntry:\n    exec(open('%s').read())\nexcept:\n    _badcode_ = True", file);
+            snprintf(msg, 256, "_badcode_ = False\ntry:\n    exec(open('%s').read())\nexcept:\n    _badcode_ = True", file);
         }
         PyRun_SimpleString(msg);
-        badcode = PyInt_AsLong(PyObject_GetAttrString(module, "_badcode_"));
+        badcode_long = PyLong_AsLong(PyObject_GetAttrString(module, "_badcode_"));
+        if (badcode_long < INT_MIN || badcode_long > INT_MAX) {
+            // Handle the error
+            printf("The value is out of the range of an int.\n");
+            PyEval_ReleaseThread(interp);
+            return -1;
+        }
+        badcode = (int)badcode_long;
         if (badcode) {
             err = 2; // err = 2 means bad code in the file.
         }
@@ -450,6 +484,8 @@ INLINE int pyo_exec_file(PyThreadState *interp, const char *file, char *msg, int
     PyEval_ReleaseThread(interp);
     return err;
 }
+
+
 
 /*
 ** Execute a python statement "msg" in the thread's interpreter "interp".

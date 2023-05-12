@@ -62,7 +62,8 @@ public:
 
     void computeCode(String code);
 
-    void parameterChanged(const String& parameterID, float newValue);
+    void parameterChanged(const String& parameterID, float newValue) override;
+
 
     Pyo pyo;
 
@@ -76,4 +77,5 @@ private:
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PyoPlugAudioProcessor)
+    char* memoryPool;    
 };
